@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Session } from "next-auth";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 interface DashboardShellProps {
   session: Session;
@@ -26,6 +27,26 @@ const navItems = [
 export default function DashboardShell({ session, children }: DashboardShellProps) {
   const pathname = usePathname();
   const user = session.user;
+
+  const [plan, setPlan] = useState("free");
+  const [uploads, setUploads] = useState(0);
+  const [limit, setLimit] = useState(3);
+
+  useEffect(() => {
+    fetch("/api/user/usage")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setPlan(data.plan);
+          setUploads(data.uploadsThisMonth);
+          setLimit(data.limit);
+        }
+      })
+      .catch(() => {}); // silently fail, fallback to 0/3
+  }, []);
+
+  const isPro = plan !== "free";
+  const progressPercent = isPro ? 0 : Math.min(100, (uploads / limit) * 100);
 
   return (
     <div className="min-h-screen bg-brand-muted flex flex-col">
@@ -91,26 +112,35 @@ export default function DashboardShell({ session, children }: DashboardShellProp
           {/* Usage counter */}
           <div className="mt-auto px-3 pt-4 border-t border-brand-border">
             <div className="text-[0.7rem] font-black uppercase tracking-widest text-brand-sage mb-2">
-              Free Plan
+              {isPro ? "Pro Plan" : "Free Plan"}
             </div>
-            <div className="flex items-center justify-between text-xs text-brand-dark font-semibold mb-1.5">
-              <span>Uploads this month</span>
-              <span className="text-brand-teal">0 / 3</span>
-            </div>
-            <div className="w-full h-1.5 bg-brand-border rounded-full overflow-hidden">
-              <div className="h-full bg-brand-teal rounded-full" style={{ width: "0%" }} />
-            </div>
+            {!isPro && (
+              <>
+                <div className="flex items-center justify-between text-xs text-brand-dark font-semibold mb-1.5">
+                  <span>Uploads this month</span>
+                  <span className={uploads >= limit ? "text-red-500" : "text-brand-teal"}>
+                    {uploads} / {limit}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-brand-border rounded-full overflow-hidden mb-3">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${uploads >= limit ? "bg-red-500" : "bg-brand-teal"}`}
+                    style={{ width: `${progressPercent}%` }} 
+                  />
+                </div>
+              </>
+            )}
             <Link
-              href="#pricing"
-              className="mt-3 w-full inline-flex items-center justify-center px-3 py-2 rounded-brand text-xs font-bold border border-brand-border text-brand-dark hover:border-brand-teal hover:text-brand-teal transition-all"
+              href="/#pricing"
+              className="w-full inline-flex items-center justify-center px-3 py-2 rounded-brand text-xs font-bold border border-brand-border text-brand-dark hover:border-brand-teal hover:text-brand-teal transition-all"
             >
-              Upgrade to Pro
+              {isPro ? "Manage Billing" : "Upgrade to Pro"}
             </Link>
           </div>
         </aside>
 
         {/* ── MAIN CONTENT ───────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative">
           {children}
         </main>
       </div>

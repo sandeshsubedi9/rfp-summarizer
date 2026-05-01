@@ -22,7 +22,7 @@ export default function HeroCTA({
     if (session) {
       router.push("/dashboard");
     } else {
-      router.push("/signup");
+      router.push("/login");
     }
   };
 
