@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Document, Page, pdfjs } from "react-pdf";
+import * as XLSX from "xlsx";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 
@@ -24,6 +25,60 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
   const [numPages, setNumPages] = useState<number>();
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfError, setPdfError] = useState("");
+
+  const handleExportExcel = () => {
+    if (!data) return;
+
+    // 1. Requirements Sheet
+    const reqs = data.requirements?.map((r: any) => ({
+      Category: r.category,
+      "Is Mandatory": r.mandatory ? "Yes" : "No",
+      Requirement: r.text,
+      "Page Source": r.page,
+      "AI Confidence": `${r.confidence}%`,
+      "My Notes": "", // Blank column for user
+    })) || [];
+    const wsReqs = XLSX.utils.json_to_sheet(reqs);
+
+    // 2. Dates Sheet
+    const dates = data.keyDates?.map((d: any) => ({
+      Event: d.label,
+      Date: d.date,
+      "Page Source": d.page,
+    })) || [];
+    const wsDates = XLSX.utils.json_to_sheet(dates);
+
+    // 3. Red Flags Sheet
+    const flags = data.redFlags?.map((f: any) => ({
+      "Red Flag": f.text,
+      Reasoning: f.reason,
+      "Page Source": f.page,
+    })) || [];
+    const wsFlags = XLSX.utils.json_to_sheet(flags);
+
+    // 4. Summary Sheet
+    const summary = [
+      { Field: "RFP Title", Value: data.rfpTitle || "" },
+      { Field: "Issuing Agency", Value: data.issuingAgency || "" },
+      { Field: "Go/No-Go Score", Value: data.goNoGoScore || "" },
+      { Field: "Reasoning", Value: data.goNoGoReasoning || "" },
+      { Field: "Executive Summary", Value: data.executiveSummary || "" },
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summary);
+
+    // Build Workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+    XLSX.utils.book_append_sheet(wb, wsReqs, "Requirements Matrix");
+    XLSX.utils.book_append_sheet(wb, wsDates, "Key Dates");
+    XLSX.utils.book_append_sheet(wb, wsFlags, "Red Flags");
+
+    // Auto-size columns for Requirements
+    wsReqs["!cols"] = [{ wch: 15 }, { wch: 15 }, { wch: 80 }, { wch: 12 }, { wch: 15 }, { wch: 30 }];
+
+    // Download
+    XLSX.writeFile(wb, `Compliance_Matrix_${data.fileName || "RFP"}.xlsx`);
+  };
 
   useEffect(() => {
     fetch(`/api/analysis/${id}`)
@@ -82,8 +137,14 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
           </h1>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-1.5 rounded-brand bg-brand-teal text-white text-xs font-bold shadow-sm hover:bg-[#035e44] transition-colors">
-            Export ▾
+          <button 
+            onClick={handleExportExcel}
+            className="px-5 py-2 rounded-brand bg-brand-teal text-white text-sm font-bold shadow-sm hover:bg-[#035e44] hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(4,124,88,0.3)] transition-all flex items-center gap-2"
+          >
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export to Excel
           </button>
         </div>
       </div>
