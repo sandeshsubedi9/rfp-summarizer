@@ -15,6 +15,10 @@ const UserSchema = new mongoose.Schema(
         "Please provide a valid email",
       ],
     },
+    password: {
+      type: String,
+      required: false, // false because Google users won't have one
+    },
     image: {
       type: String,
       required: false,

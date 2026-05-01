@@ -22,7 +22,7 @@ export default function HeroCTA({
     if (session) {
       router.push("/dashboard");
     } else {
-      signIn("google", { callbackUrl: "/dashboard" });
+      router.push("/signup");
     }
   };
 
@@ -34,10 +34,9 @@ export default function HeroCTA({
   return (
     <button
       onClick={handleClick}
-      disabled={status === "loading"}
-      className={`${base} ${className ?? ""} disabled:opacity-60 disabled:cursor-not-allowed`}
+      className={`${base} ${className ?? ""} transition-all`}
     >
-      {status === "loading" ? "Loading..." : label}
+      {label}
     </button>
   );
 }

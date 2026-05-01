@@ -70,18 +70,18 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button
-                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+              <Link
+                href="/login"
                 className="hidden sm:inline-flex items-center justify-center text-sm font-bold text-brand-sage hover:text-brand-teal transition-colors"
               >
                 Log In
-              </button>
-              <button
-                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+              </Link>
+              <Link
+                href="/signup"
                 className="inline-flex items-center justify-center px-6 py-2.5 rounded-brand text-sm font-bold bg-brand-teal text-white hover:bg-[#035e44] hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(4,124,88,0.35)] transition-all"
               >
                 Start Free
-              </button>
+              </Link>
             </>
           )}
         </div>
