@@ -25,22 +25,22 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-bold mb-3">2. How We Use Your Information</h2>
-            <p className="text-brand-sage">
-              We use your information to provide, maintain, and improve the Service. The documents you upload are processed by our AI partners (e.g., Google Gemini) solely for the purpose of generating your analysis dashboard.
+            <p className="text-brand-sage leading-relaxed">
+              We use your information exclusively to provide, maintain, and improve the Service. The documents you upload and the data extracted from them are used <strong>solely for the purpose of generating your analysis and maintaining your account history.</strong> We do not sell, lease, or use your private data for any other commercial or external purposes.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3">3. Data Security & AI Training</h2>
+            <h2 className="text-xl font-bold mb-3">3. Data Security</h2>
             <p className="text-brand-sage">
-              <strong>We do NOT use your private RFP documents to train public AI models.</strong> Data sent to our AI providers is strictly used for your inference request and is not retained by them for model training purposes.
+              We implement industry-standard security measures to protect your data. Your documents are processed using secure AI infrastructure to generate your analysis results.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-bold mb-3">4. Data Retention</h2>
-            <p className="text-brand-sage">
-              Uploaded documents and their extracted analysis are stored securely in our database so you can access your dashboard. You may request the deletion of your account and all associated documents at any time by contacting support.
+            <p className="text-brand-sage leading-relaxed">
+              Uploaded documents and their extracted analysis results are stored securely to provide your account history. <strong>This data is automatically deleted based on the retention period associated with your specific plan</strong> (e.g., 48 hours for Free users). You may also request the permanent deletion of your account and all associated files at any time by contacting our support team.
             </p>
           </section>
         </div>

@@ -39,8 +39,8 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-xl font-bold mb-3">4. Document Handling & Privacy</h2>
-            <p className="text-brand-sage">
-              Documents uploaded to the Service are processed temporarily for analysis. We do not use your documents to train public AI models. For full details on data handling, please refer to our Privacy Policy.
+            <p className="text-brand-sage leading-relaxed">
+              Documents uploaded to the Service are processed temporarily for analysis and stored solely for your historical reference. BidBrief treats your data as confidential; we never use your extracted information for any purpose other than providing your dashboard and reports. For full details, please refer to our Privacy Policy.
             </p>
           </section>
 

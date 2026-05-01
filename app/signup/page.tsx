@@ -163,9 +163,9 @@ function SignupForm() {
 
       <p className="mt-8 text-center text-xs text-brand-sage max-w-xs mx-auto leading-relaxed">
         By continuing, you agree to BidBrief's{" "}
-        <Link href="#" className="underline hover:text-brand-dark">Terms of Service</Link>
+        <Link href="/terms" className="underline hover:text-brand-dark">Terms of Service</Link>
         {" "}and{" "}
-        <Link href="#" className="underline hover:text-brand-dark">Privacy Policy</Link>.
+        <Link href="/privacy" className="underline hover:text-brand-dark">Privacy Policy</Link>.
       </p>
     </div>
   );

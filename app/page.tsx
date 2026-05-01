@@ -73,7 +73,7 @@ const pricingPlans = [
       "Up to 200 pages per document",
       "Full AI extraction (requirements + deadlines)",
       "Download as PDF",
-      "Results saved for 24 hours",
+      "Results saved for 48 hours",
     ],
     cta: "Start Free",
     href: "/signup",
@@ -91,7 +91,7 @@ const pricingPlans = [
       "Download as Excel + PDF",
       "Answer Bank (save & reuse past answers)",
       "Deadline Calendar export",
-      "History saved for 90 days",
+      "Unlimited history & storage",
     ],
     cta: "Start Pro",
     href: "/signup?plan=pro",
@@ -122,7 +122,7 @@ const pricingPlans = [
       "Full AI extraction",
       "Unlimited pages",
       "Download as Excel + PDF",
-      "Results saved for 7 days",
+      "Results saved for 30 days",
     ],
     cta: "Buy 1 Credit",
     href: "/signup?plan=payg",
@@ -553,8 +553,8 @@ export default function HomePage() {
             <div className="flex flex-col">
               <div className="text-[0.75rem] font-black tracking-[0.2em] uppercase text-brand-dark mb-6">Legal</div>
               <ul className="flex flex-col gap-4 list-none">
-                <li><Link href="/privacy" className="text-[0.95rem] font-medium text-brand-sage hover:text-brand-teal transition-colors">Privacy</Link></li>
-                <li><Link href="/terms" className="text-[0.95rem] font-medium text-brand-sage hover:text-brand-teal transition-colors">Terms</Link></li>
+                <li><Link href="/privacy" className="text-[0.95rem] font-medium text-brand-sage hover:text-brand-teal transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="text-[0.95rem] font-medium text-brand-sage hover:text-brand-teal transition-colors">Terms of Service</Link></li>
               </ul>
             </div>
           </div>

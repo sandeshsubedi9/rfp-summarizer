@@ -125,6 +125,13 @@ function LoginForm() {
         </svg>
         Sign in with Google
       </button>
+
+      <p className="mt-8 text-center text-xs text-brand-sage max-w-xs mx-auto leading-relaxed">
+        By continuing, you agree to BidBrief's{" "}
+        <Link href="/terms" className="underline hover:text-brand-dark">Terms of Service</Link>
+        {" "}and{" "}
+        <Link href="/privacy" className="underline hover:text-brand-dark">Privacy Policy</Link>.
+      </p>
     </div>
   );
 }
