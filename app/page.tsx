@@ -1,6 +1,7 @@
 import Link from "next/link";
 import FaqItem from "./components/FaqItem";
 import Navbar from "./components/Navbar";
+import HeroCTA from "./components/HeroCTA";
 
 /* ─────────────────────────────────────────────────────────────
    DATA
@@ -187,10 +188,8 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-5 mt-2">
-            <Link href="/signup" className="inline-flex items-center justify-center px-9 py-4 rounded-brand text-base font-bold bg-brand-teal text-white hover:bg-[#035e44] hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(4,124,88,0.35)] transition-all">
-              Upload Your First RFP Free
-            </Link>
-            <Link href="#how-it-works" className="inline-flex items-center justify-center px-9 py-4 rounded-brand text-base font-bold border-1.5 border-brand-border text-brand-dark hover:border-brand-teal hover:text-brand-teal transition-all">
+            <HeroCTA label="Upload Your First RFP Free" variant="primary" />
+            <Link href="#how-it-works" className="inline-flex items-center justify-center px-9 py-4 rounded-brand text-base font-bold border border-brand-border text-brand-dark hover:border-brand-teal hover:text-brand-teal transition-all">
               See How It Works
             </Link>
           </div>
@@ -358,9 +357,7 @@ export default function HomePage() {
                 </li>
               </ul>
               <div className="mt-10">
-                <Link href="/signup" className="inline-flex items-center justify-center px-10 py-4 rounded-brand text-base font-bold bg-brand-teal text-white hover:bg-[#035e44] hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(4,124,88,0.35)] transition-all">
-                  Start Free Today
-                </Link>
+                <HeroCTA label="Start Free Today" variant="primary" />
               </div>
             </div>
 
@@ -474,12 +471,11 @@ export default function HomePage() {
                 </ul>
 
                 <div className="mt-auto pt-4">
-                  <Link
-                    href={plan.href}
-                    className={`w-full inline-flex items-center justify-center px-6 py-3.5 rounded-brand text-sm font-black uppercase tracking-wider transition-all ${plan.popular ? "bg-brand-teal text-white hover:bg-[#035e44]" : "border-2 border-brand-border text-brand-dark hover:border-brand-teal hover:text-brand-teal"}`}
-                  >
-                    {plan.cta}
-                  </Link>
+                  <HeroCTA
+                    label={plan.cta}
+                    variant={plan.popular ? "primary" : "secondary"}
+                    className="w-full text-sm font-black uppercase tracking-wider"
+                  />
                 </div>
               </div>
             ))}
@@ -515,9 +511,7 @@ export default function HomePage() {
             Get your structured action plan in under 60 seconds.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6">
-            <Link href="/signup" className="inline-flex items-center justify-center px-12 py-5 rounded-brand text-base font-black bg-brand-teal text-white hover:bg-[#035e44] hover:-translate-y-px hover:shadow-[0_10px_30px_rgba(4,124,88,0.4)] transition-all">
-              Start Free Trial
-            </Link>
+            <HeroCTA label="Start Free Trial" variant="primary" className="px-12 py-5 font-black" />
             <Link href="#pricing" className="inline-flex items-center justify-center px-12 py-5 rounded-brand text-base font-black border-2 border-brand-border text-brand-dark hover:border-brand-teal hover:text-brand-teal transition-all bg-white">
               View Pricing
             </Link>

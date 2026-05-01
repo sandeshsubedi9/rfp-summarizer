@@ -15,14 +15,24 @@ const UserSchema = new mongoose.Schema(
         "Please provide a valid email",
       ],
     },
-    password: {
-      type: String,
-      // Password is not required if the user signed up via Google
-      required: false,
-    },
     image: {
       type: String,
       required: false,
+    },
+    // Subscription tier: "free" | "pro" | "team" | "payg"
+    plan: {
+      type: String,
+      enum: ["free", "pro", "team", "payg"],
+      default: "free",
+    },
+    // Usage tracking — reset on the 1st of each month
+    uploadsThisMonth: {
+      type: Number,
+      default: 0,
+    },
+    lastUploadResetDate: {
+      type: Date,
+      default: () => new Date(),
     },
   },
   { timestamps: true }
