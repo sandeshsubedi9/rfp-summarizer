@@ -4,40 +4,45 @@ const KeyDateSchema = new mongoose.Schema({
   label: String,
   date: String,
   page: Number,
-  confidence: Number,
 });
 
 const RequirementSchema = new mongoose.Schema({
   text: String,
   category: {
     type: String,
-    enum: ["Technical", "Compliance", "Financial", "Operational", "Other"],
+    enum: ["Technical", "Management", "Past Performance", "Pricing", "Legal", "Compliance", "Operational", "Financial", "Other"],
     default: "Other",
   },
   mandatory: { type: Boolean, default: false },
+  severity: {
+    type: String,
+    enum: ["Critical", "High", "Medium", "Low", "Informational"],
+    default: "Medium",
+  },
   page: Number,
-  confidence: Number,
 });
 
 const RedFlagSchema = new mongoose.Schema({
   text: String,
   reason: String,
+  risk_type: {
+    type: String,
+    enum: ["Financial", "Legal", "Operational", "Timeline", "Other"],
+    default: "Other",
+  },
   page: Number,
 });
 
+// Reusing DeliverableSchema to store Evaluation Criteria
 const DeliverableSchema = new mongoose.Schema({
-  text: String,
+  text: String, // "Factor: Weight" format
   page: Number,
 });
 
 const AnalysisSchema = new mongoose.Schema(
   {
-    // The user who uploaded this document
-    userId: {
-      type: String,
-      required: true,
-      index: true,
-    },
+    userId: { type: String, required: true, index: true },
+
     // Document metadata
     fileName: { type: String, required: true },
     fileSize: { type: Number },
@@ -48,9 +53,11 @@ const AnalysisSchema = new mongoose.Schema(
     },
     errorMessage: { type: String },
 
-    // AI-extracted fields
+    // AI-extracted contract metadata
     rfpTitle: { type: String, default: null },
     issuingAgency: { type: String, default: null },
+
+    // AI analysis
     executiveSummary: { type: String, default: "" },
     goNoGoScore: { type: Number, default: null },
     goNoGoReasoning: { type: String, default: "" },
@@ -58,7 +65,7 @@ const AnalysisSchema = new mongoose.Schema(
     keyDates: [KeyDateSchema],
     requirements: [RequirementSchema],
     redFlags: [RedFlagSchema],
-    deliverables: [DeliverableSchema],
+    deliverables: [DeliverableSchema], // Used for evaluation criteria
   },
   { timestamps: true }
 );

@@ -75,7 +75,7 @@ export default function UploadPage() {
     e.preventDefault(); setIsDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFileChosen(f);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── Flag toggle ─────────────────────────────────────────── */
@@ -122,11 +122,14 @@ export default function UploadPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === "limit_reached") {
-          setError("You've used all 3 free uploads this month. Upgrade to Pro for unlimited access.");
-        } else {
-          setError(data.error ?? "Something went wrong. Please try again.");
-        }
+        const errorMap: Record<string, string> = {
+          limit_reached: "You've used all 3 free uploads this month. Upgrade to Pro for unlimited access.",
+          analysis_failed: "We could not generate a summary. Please try again in a moment.",
+          too_large: "File too large. Please upload a document under 200 pages.",
+          Unauthorized: "Please sign in again and retry.",
+        };
+        const friendly = errorMap[data.error] ?? "Something went wrong. Please try again.";
+        setError(friendly);
         setStep("context");
         return;
       }
@@ -160,12 +163,10 @@ export default function UploadPage() {
               const active = i === current;
               return (
                 <div key={label} className="flex items-center gap-3">
-                  <div className={`flex items-center gap-2 text-sm font-bold transition-colors ${
-                    active ? "text-brand-teal" : done ? "text-brand-teal/60" : "text-brand-sage"
-                  }`}>
-                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                      done ? "bg-brand-teal text-white" : active ? "bg-brand-teal-lt text-brand-teal border-2 border-brand-teal" : "bg-brand-border text-brand-sage"
+                  <div className={`flex items-center gap-2 text-sm font-bold transition-colors ${active ? "text-brand-teal" : done ? "text-brand-teal/60" : "text-brand-sage"
                     }`}>
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${done ? "bg-brand-teal text-white" : active ? "bg-brand-teal-lt text-brand-teal border-2 border-brand-teal" : "bg-brand-border text-brand-sage"
+                      }`}>
                       {done ? "✓" : i + 1}
                     </span>
                     <span className="hidden sm:block">{label}</span>
@@ -189,16 +190,14 @@ export default function UploadPage() {
               onDragLeave={onDragLeave}
               onDrop={onDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`relative flex flex-col items-center justify-center gap-5 py-16 px-8 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 ${
-                isDragging
+              className={`relative flex flex-col items-center justify-center gap-5 py-16 px-8 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 ${isDragging
                   ? "border-brand-teal bg-brand-teal-lt/50 scale-[1.01]"
                   : "border-brand-border bg-brand-muted hover:border-brand-teal hover:bg-brand-teal-lt/20"
-              }`}
+                }`}
             >
               {/* Animated upload icon */}
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all duration-200 ${
-                isDragging ? "bg-brand-teal text-white scale-110" : "bg-brand-teal-lt text-brand-teal"
-              }`}>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all duration-200 ${isDragging ? "bg-brand-teal text-white scale-110" : "bg-brand-teal-lt text-brand-teal"
+                }`}>
                 {isDragging ? "📂" : "📄"}
               </div>
 
@@ -292,15 +291,13 @@ export default function UploadPage() {
                     <button
                       key={flag}
                       onClick={() => toggleFlag(flag)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-left transition-all ${
-                        checked
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-left transition-all ${checked
                           ? "border-brand-teal bg-brand-teal-lt/40 text-brand-teal"
                           : "border-brand-border text-brand-dark hover:border-brand-teal/40"
-                      }`}
+                        }`}
                     >
-                      <span className={`w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 transition-all ${
-                        checked ? "bg-brand-teal text-white" : "border-2 border-brand-border"
-                      }`}>
+                      <span className={`w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 transition-all ${checked ? "bg-brand-teal text-white" : "border-2 border-brand-border"
+                        }`}>
                         {checked ? "✓" : ""}
                       </span>
                       {flag}
@@ -309,7 +306,7 @@ export default function UploadPage() {
                 })}
               </div>
               <p className="mt-3 text-xs text-brand-sage">
-                💡 Skipping these is fine — the AI extracts everything regardless.
+                💡 Skipping these is fine, the AI extracts everything regardless.
               </p>
             </div>
 
@@ -364,16 +361,14 @@ export default function UploadPage() {
                 const isDone = doneSteps.includes(i);
                 const isActive = processingStep === i && !isDone;
                 return (
-                  <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-500 ${
-                    isDone ? "border-brand-teal bg-brand-teal-lt/40" :
-                    isActive ? "border-brand-teal/40 bg-brand-muted" :
-                    "border-brand-border bg-brand-muted opacity-40"
-                  }`}>
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition-all ${
-                      isDone ? "bg-brand-teal text-white" :
-                      isActive ? "border-2 border-brand-teal bg-white" :
-                      "bg-brand-border text-brand-sage"
+                  <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-500 ${isDone ? "border-brand-teal bg-brand-teal-lt/40" :
+                      isActive ? "border-brand-teal/40 bg-brand-muted" :
+                        "border-brand-border bg-brand-muted opacity-40"
                     }`}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition-all ${isDone ? "bg-brand-teal text-white" :
+                        isActive ? "border-2 border-brand-teal bg-white" :
+                          "bg-brand-border text-brand-sage"
+                      }`}>
                       {isDone ? "✓" : isActive ? (
                         <span className="block w-2.5 h-2.5 rounded-full bg-brand-teal animate-pulse" />
                       ) : i + 1}
