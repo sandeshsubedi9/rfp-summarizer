@@ -30,10 +30,12 @@ export async function GET() {
       await dbUser.save();
     }
 
+    const bypassLimit = process.env.DEV_BYPASS_LIMIT === "true";
+
     return NextResponse.json({
       success: true,
       plan: dbUser.plan || "free",
-      uploadsThisMonth: dbUser.uploadsThisMonth || 0,
+      uploadsThisMonth: bypassLimit ? 0 : (dbUser.uploadsThisMonth || 0),
       limit: 3, // Free tier limit
     });
   } catch (err) {

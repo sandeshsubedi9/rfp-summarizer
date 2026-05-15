@@ -97,9 +97,13 @@ export async function POST(req: NextRequest) {
     const dbUser = await User.findOne({ email: session.user.email });
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // Usage check
+    // Usage check (skip in dev when DEV_BYPASS_LIMIT=true)
     const FREE_LIMIT = 3;
-    if (dbUser.plan === "free" && (dbUser.uploadsThisMonth ?? 0) >= FREE_LIMIT) {
+    const bypassLimit = process.env.DEV_BYPASS_LIMIT === "true";
+    console.log(`[analyze] User: ${dbUser.email}, Count: ${dbUser.uploadsThisMonth}, Bypass: ${bypassLimit}`);
+    
+    if (!bypassLimit && dbUser.plan === "free" && (dbUser.uploadsThisMonth ?? 0) >= FREE_LIMIT) {
+      console.log("[analyze] Limit reached, blocking upload.");
       return NextResponse.json({ error: "limit_reached" }, { status: 403 });
     }
 
@@ -162,8 +166,8 @@ TEXT: ${extractedText.slice(0, 15000)}`;
 
     // ─── CHUNKED PIPELINE ─────────────────────────────────────────────────────
     const chunks: string[] = [];
-    const overlapSize = 1000;
-    const chunkSize = 20000; // Gemini can handle large chunks easily
+    const overlapSize = 2000;
+    const chunkSize = 150000; // Gemini can handle massive context; 150k chars is ~40-50 pages per call
     for (let i = 0; i < extractedText.length; i += (chunkSize - overlapSize)) {
       chunks.push(extractedText.slice(i, i + chunkSize));
     }
