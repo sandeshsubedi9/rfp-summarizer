@@ -184,7 +184,7 @@ TEXT: ${extractedText.slice(0, 15000)}`;
     // ─── CHUNKED PIPELINE ─────────────────────────────────────────────────────
     const chunks: string[] = [];
     const overlapSize = 2000;
-    const chunkSize = 150000; // Gemini can handle massive context; 150k chars is ~40-50 pages per call
+    const chunkSize = 80000; // ~25 pages per chunk — balanced for extraction accuracy vs. speed
     for (let i = 0; i < extractedText.length; i += (chunkSize - overlapSize)) {
       chunks.push(extractedText.slice(i, i + chunkSize));
     }
