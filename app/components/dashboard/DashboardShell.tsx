@@ -86,9 +86,10 @@ export default function DashboardShell({ session, children }: DashboardShellProp
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── SIDEBAR ────────────────────────────────────────── */}
-        <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r border-brand-border pt-6 pb-4 px-3">
-          <nav className="flex flex-col gap-1 flex-1">
-            {navItems.map((item) => {
+        {!pathname.startsWith("/dashboard/results/") && (
+          <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r border-brand-border pt-6 pb-4 px-3">
+            <nav className="flex flex-col gap-1 flex-1">
+              {navItems.map((item) => {
               const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
               return (
                 <Link
@@ -138,6 +139,7 @@ export default function DashboardShell({ session, children }: DashboardShellProp
             </Link>
           </div>
         </aside>
+        )}
 
         {/* ── MAIN CONTENT ───────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto relative">
