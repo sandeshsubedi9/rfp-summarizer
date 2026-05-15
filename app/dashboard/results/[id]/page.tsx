@@ -4,6 +4,8 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // Dynamically import react-pdf components with SSR disabled
 const PDFViewer = dynamic(() => import("./PDFViewer"), { 
@@ -21,6 +23,7 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
   const [error, setError] = useState("");
   
   const [activeTab, setActiveTab] = useState<Tab>("summary");
+  const [showExportMenu, setShowExportMenu] = useState(false);
   
   // PDF Viewer state
   const [numPages, setNumPages] = useState<number>();
@@ -97,6 +100,169 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
     XLSX.utils.book_append_sheet(wb, wsCriteria, "Evaluation Criteria");
 
     XLSX.writeFile(wb, `BidBrief_Analysis_${data.fileName || "RFP"}.xlsx`);
+    setShowExportMenu(false);
+  };
+
+  const handleExportPDF = () => {
+    if (!data) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // 1. Header
+    doc.setFontSize(22);
+    doc.setTextColor(4, 124, 88); // brand-teal
+    doc.setFont("helvetica", "bold");
+    doc.text("BidBrief Audit Report", 20, yPos);
+    
+    yPos += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 20, yPos);
+    
+    yPos += 15;
+    doc.setFontSize(14);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont("helvetica", "bold");
+    doc.text("RFP Information", 20, yPos);
+    
+    yPos += 8;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Title: ${data.rfpTitle || data.fileName}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Agency: ${data.issuingAgency || "Unknown"}`, 20, yPos);
+
+    // 2. Score Card
+    yPos += 15;
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, yPos, pageWidth - 40, 30, "F");
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text("Bid/No-Bid Score:", 30, yPos + 12);
+    
+    const score = data.goNoGoScore || 0;
+    const scoreColor = score >= 70 ? [4, 124, 88] : score >= 40 ? [217, 119, 6] : [220, 38, 38];
+    doc.setFontSize(24);
+    doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+    doc.text(`${score}/100`, 30, yPos + 22);
+    
+    const scoreLabel = score >= 81 ? "Excellent Match" : score >= 61 ? "Good Opportunity" : score >= 40 ? "Proceed with Caution" : "Strong No-Bid";
+    doc.setFontSize(12);
+    doc.text(scoreLabel, 80, yPos + 22);
+
+    // 3. Executive Summary
+    yPos += 45;
+    doc.setFontSize(14);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont("helvetica", "bold");
+    doc.text("Strategic Executive Summary", 20, yPos);
+    
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60, 60, 60);
+    const summaryLines = doc.splitTextToSize(data.executiveSummary || "No summary available.", pageWidth - 40);
+    doc.text(summaryLines, 20, yPos);
+    
+    yPos += (summaryLines.length * 5) + 10;
+
+    // 4. Key Dates Table
+    if (data.keyDates?.length > 0) {
+      doc.setFontSize(14);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", "bold");
+      doc.text("Key Dates & Deadlines", 20, yPos);
+      
+      autoTable(doc, {
+        startY: yPos + 5,
+        head: [["Event", "Date", "Page"]],
+        body: data.keyDates.map((d: any) => [d.label, d.date, d.page || "-"]),
+        headStyles: { fillColor: [4, 124, 88] },
+        margin: { left: 20, right: 20 }
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // New Page for Red Flags if needed
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    // 5. Red Flags Table
+    if (data.redFlags?.length > 0) {
+      doc.setFontSize(14);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", "bold");
+      doc.text("Critical Red Flags & Risks", 20, yPos);
+      
+      autoTable(doc, {
+        startY: yPos + 5,
+        head: [["Risk Type", "Red Flag", "Business Impact"]],
+        body: data.redFlags.map((f: any) => [f.risk_type || "Risk", f.text, f.reason]),
+        headStyles: { fillColor: [220, 38, 38] },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: 60 },
+          2: { cellWidth: 80 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // 6. Requirements Matrix Table (Full)
+    if (data.requirements?.length > 0) {
+      if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      doc.setFontSize(14);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", "bold");
+      doc.text("Complete Requirements Matrix", 20, yPos);
+
+      const SEVERITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Informational: 4 };
+      const sortedReqs = [...(data.requirements || [])].sort(
+        (a: any, b: any) => (SEVERITY_ORDER[a.severity] ?? 5) - (SEVERITY_ORDER[b.severity] ?? 5)
+      );
+
+      autoTable(doc, {
+        startY: yPos + 5,
+        head: [["Sev", "Category", "Requirement", "Pg"]],
+        body: sortedReqs.map((r: any) => [
+          r.severity?.substring(0, 4) || "Med", 
+          r.category || "Other", 
+          r.text, 
+          r.page || "-"
+        ]),
+        headStyles: { fillColor: [70, 70, 70] },
+        columnStyles: {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 115 },
+          3: { cellWidth: 10 }
+        },
+        styles: { fontSize: 8 },
+        margin: { left: 20, right: 20 },
+        didParseCell: function(data) {
+          if (data.section === 'body' && data.column.index === 0) {
+            const sev = data.cell.raw;
+            if (sev === 'Crit') data.cell.styles.textColor = [220, 38, 38];
+            if (sev === 'High') data.cell.styles.textColor = [217, 119, 6];
+          }
+        }
+      });
+    }
+
+    doc.save(`BidBrief_Audit_Report_${data.fileName || "RFP"}.pdf`);
+    setShowExportMenu(false);
   };
 
   useEffect(() => {
@@ -155,16 +321,51 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
             {data.fileName}
           </h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex relative">
           <button 
-            onClick={handleExportExcel}
+            onClick={() => setShowExportMenu(!showExportMenu)}
             className="px-5 py-2 rounded-brand bg-brand-teal text-white text-sm font-bold shadow-sm hover:bg-[#035e44] hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(4,124,88,0.3)] transition-all flex items-center gap-2"
           >
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Export to Excel
+            Export Report
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} className={`transition-transform ${showExportMenu ? "rotate-180" : ""}`}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
+
+          {showExportMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-20" 
+                onClick={() => setShowExportMenu(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-brand-border py-2 z-30 animate-in fade-in slide-in-from-top-2">
+                <button 
+                  onClick={handleExportExcel}
+                  className="w-full text-left px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-brand-muted flex items-center gap-3 transition-colors"
+                >
+                  <span className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">XLSX</span>
+                  <div>
+                    <p>Excel Spreadsheet</p>
+                    <p className="text-[10px] text-brand-sage font-medium">Full Requirements Matrix</p>
+                  </div>
+                </button>
+                <div className="h-px bg-brand-border mx-2 my-1" />
+                <button 
+                  onClick={handleExportPDF}
+                  className="w-full text-left px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-brand-muted flex items-center gap-3 transition-colors"
+                >
+                  <span className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-xs">PDF</span>
+                  <div>
+                    <p>PDF Executive Report</p>
+                    <p className="text-[10px] text-brand-sage font-medium">Summary & Key Risks</p>
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -437,7 +638,26 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
         {/* 3. RIGHT PANE (PDF Viewer) */}
         <div className="w-[450px] bg-[#EFEFEF] border-l border-brand-border flex flex-col shrink-0">
           <div className="h-10 bg-[#D4D4D4] border-b border-[#C0C0C0] flex items-center justify-between px-3 shrink-0 shadow-sm z-10">
-            <span className="text-xs font-bold text-[#555] uppercase tracking-widest">Source Document</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#555] uppercase tracking-widest">Source Document</span>
+              <span className="text-[10px] font-bold text-[#888] bg-white/50 px-1.5 py-0.5 rounded border border-black/5 flex items-center gap-1">
+                <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Ctrl + F
+              </span>
+              <a 
+                href={`/uploads/${data._id}.pdf`} 
+                target="_blank" 
+                rel="noreferrer"
+                title="Open full PDF in new tab for searching"
+                className="text-[#777] hover:text-brand-teal transition-colors"
+              >
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
             <div className="flex items-center gap-2 bg-white rounded px-2 py-0.5 border border-[#C0C0C0]">
               <button 
                 onClick={() => setPageNumber(p => Math.max(1, p - 1))}
