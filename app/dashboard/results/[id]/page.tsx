@@ -194,6 +194,19 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
             
+          {/* Score label */}
+            <p className="text-sm font-black mt-1 mb-2"
+              style={{ color: data.goNoGoScore >= 70 ? "#047C58" : data.goNoGoScore >= 40 ? "#D97706" : "#DC2626" }}
+            >
+              {data.goNoGoScore >= 81
+                ? "✅ Excellent Match"
+                : data.goNoGoScore >= 61
+                ? "🟡 Good Opportunity"
+                : data.goNoGoScore >= 40
+                ? "⚠️ Proceed with Caution"
+                : "🔴 Strong No-Bid"}
+            </p>
+            
             <p className="text-xs text-brand-sage leading-relaxed font-medium">
               {data.goNoGoReasoning || "AI did not provide reasoning."}
             </p>
@@ -222,10 +235,10 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
         <div className="flex-1 flex flex-col bg-brand-white min-w-0">
           
           {/* Disclaimer Banner */}
-          <div className="bg-brand-teal-lt/50 border-b border-brand-teal/20 p-3 flex gap-3 text-sm">
-            <span className="text-brand-teal">💡</span>
-            <p className="text-brand-dark font-medium leading-snug">
-              BidBrief AI accelerates review but doesn't replace professional judgment. Verify items with confidence &lt; 70% against the source document.
+          <div className="bg-amber-50 border-b border-amber-200 p-3 flex gap-3 text-sm">
+            <span className="text-amber-500 shrink-0">⚠️</span>
+            <p className="text-amber-900 font-medium leading-snug">
+              AI-generated analysis. Always verify critical deadlines, submission requirements, and compliance items against the source document before submitting a proposal.
             </p>
           </div>
 
@@ -299,9 +312,7 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
                           <span className={`text-[0.6rem] font-black uppercase tracking-widest px-2 py-1 rounded-sm ${severityStyle[req.severity] || "bg-brand-muted text-brand-sage"}`}>
                             {req.severity || "Med"}
                           </span>
-                          {req.mandatory ? (
-                            <span className="bg-brand-teal text-white text-[0.6rem] font-black uppercase tracking-widest px-2 py-1 rounded-sm">Must</span>
-                          ) : (
+                          {!req.mandatory && (
                             <span className="bg-brand-muted text-brand-sage text-[0.6rem] font-black uppercase tracking-widest px-2 py-1 rounded-sm">Opt</span>
                           )}
                         </div>

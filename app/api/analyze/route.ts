@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     // ─── METADATA EXTRACTION (first 15,000 chars = ~first 20 pages) ──────────
     console.log("[analyze] Extracting contract metadata...");
-    const metadataPrompt = `Extract key contract metadata from this RFP document opening section.
+    const metadataPrompt = `You are analyzing the OPENING SECTION of a government RFP. Extract ALL of the following.
 
 Return JSON ONLY:
 {
@@ -144,21 +144,38 @@ Return JSON ONLY:
   "performance_period": "Contract duration if mentioned, else null",
   "set_aside": "Small Business|8(a)|HUBZone|SDVOSB|WOSB|None|Unknown",
   "naics_code": "NAICS code if mentioned, else null",
-  "evaluation_method": "LPTA|Best Value|Trade-off|QBS|Unknown"
+  "evaluation_method": "LPTA|Best Value|Trade-off|QBS|Unknown",
+  "rfp_schedule": [
+    {
+      "label": "Event name (e.g. Proposals Due, RFP Issue Date, Questions Deadline, Award Date, Contract Start Date)",
+      "date": "Exact date and time as written in the document",
+      "page": 1
+    }
+  ]
 }
+
+CRITICAL: The rfp_schedule array MUST include every date from the RFP Schedule or Important Dates table on the cover page — especially: proposal/bid due date, RFP issue date, deadline to submit questions, anticipated award date, and contract start/end date. These appear near the top of the document in a table. Do NOT skip them.
 
 TEXT: ${extractedText.slice(0, 15000)}`;
 
     let contractMetadata: Record<string, string | null> = {};
+    let coverPageDates: any[] = [];
     try {
       const metaRaw = await callAI(
-        "You are a government contracting expert. Extract contract metadata. Output only valid JSON.",
+        "You are a government contracting expert. Extract contract metadata and the RFP schedule dates precisely. Output only valid JSON.",
         metadataPrompt,
         geminiKey!,
         groqKey
       );
       const cleanMeta = metaRaw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-      contractMetadata = JSON.parse(cleanMeta);
+      const parsedMeta = JSON.parse(cleanMeta);
+      // Split rfp_schedule out; the rest is contract metadata
+      const { rfp_schedule, ...meta } = parsedMeta;
+      contractMetadata = meta;
+      if (Array.isArray(rfp_schedule) && rfp_schedule.length > 0) {
+        coverPageDates = rfp_schedule;
+        console.log(`[analyze] Cover page schedule: ${rfp_schedule.length} dates extracted.`);
+      }
       console.log("[analyze] Metadata extracted:", contractMetadata.rfp_title);
     } catch (e) {
       console.warn("[analyze] Metadata extraction failed, continuing...", e);
@@ -197,11 +214,15 @@ CRITICAL EXTRACTION RULES:
 1. REQUIREMENTS: Extract EVERY mandate, obligation, or specification. Flag keywords: "shall", "must", "will", "required", "is responsible for", "contractor shall". Include the full sentence.
    - severity: "Critical" = disqualifying if missed | "High" = major compliance | "Medium" = operational | "Low" = standard | "Informational" = context only
    - category: Must be one of: Technical, Management, Past Performance, Pricing, Legal, Compliance, Operational, Financial
-2. DATES: Every deadline, milestone, period of performance, option period, submission date.
+2. DATES: Every contractual deadline, milestone, period of performance, or submission date found in THIS section. Do NOT re-extract dates from the cover page RFP schedule (those are captured separately).
 3. RED FLAGS — A red flag is ONLY a clause that creates GENUINE business or legal risk:
    ✅ Valid red flags: no guaranteed work (IDIQ/task-order), unilateral termination-for-convenience, contractor indemnification of government, pricing locked with no escalation, BAFO uncertainty, pass/fail gates that auto-disqualify, sovereign immunity language, unlimited liability exposure, ambiguous scope.
    ❌ NOT red flags: normal requirements, standard submission instructions, routine compliance clauses.
-4. EVALUATION CRITERIA: If this section contains scoring criteria, weights, or evaluation factors, extract them.
+4. EVALUATION CRITERIA — CRITICAL INSTRUCTION:
+   ✅ EXTRACT ONLY: The official proposal scoring/evaluation table showing how proposals will be SCORED by the review committee. This table has columns like "Criteria" and "Points" or "Weight" with NUMERIC values (e.g. "Technical Capability: 10 points", "Cover Letter: 5 points", "Total: 50 points").
+   ❌ DO NOT EXTRACT: EEO workforce participation percentage goals (e.g. "6.9% female participation") — those are labor compliance targets, NOT evaluation criteria.
+   ❌ DO NOT EXTRACT: Davis-Bacon wage rates, insurance minimums, or any other numeric compliance thresholds.
+   If no official proposal scoring table exists in this section, return an empty array [].
 
 Return JSON ONLY:
 {
@@ -209,7 +230,7 @@ Return JSON ONLY:
   "requirements": [{ "text": "Full requirement text", "category": "Technical", "mandatory": true, "severity": "High", "page": ${estimatedStartPage} }],
   "dates": [{ "label": "Event name", "date": "YYYY-MM-DD or description", "page": ${estimatedStartPage} }],
   "red_flags": [{ "text": "Exact clause", "reason": "Specific business/legal risk this creates for the bidder", "risk_type": "Financial|Legal|Operational|Timeline", "page": ${estimatedStartPage} }],
-  "eval_criteria": [{ "factor": "Factor name", "weight": "Points or percentage", "page": ${estimatedStartPage} }]
+  "eval_criteria": [{ "factor": "Criteria name (e.g. Technical Capability and Experience)", "weight": "Numeric score or Pass/Fail (e.g. 10 points, Pass/Fail)", "page": ${estimatedStartPage} }]
 }
 
 TEXT: ${chunks[i]}`;
@@ -288,6 +309,15 @@ Return JSON ONLY:
     }
 
     // ─── SAVE & FINISH ────────────────────────────────────────────────────────
+    // Merge cover page dates (highest priority) with pipeline-found dates, deduplicate by label
+    const mergedDates = [...coverPageDates];
+    const coverLabels = new Set(coverPageDates.map((d: any) => d.label?.toLowerCase().trim()));
+    for (const d of allDates) {
+      if (!coverLabels.has(d.label?.toLowerCase().trim())) {
+        mergedDates.push(d);
+      }
+    }
+
     await Analysis.findByIdAndUpdate(analysis._id, {
       status: "done",
       rfpTitle: contractMetadata.rfp_title || file.name,
@@ -296,7 +326,7 @@ Return JSON ONLY:
       goNoGoScore: finalJSON.score,
       goNoGoReasoning: finalJSON.reasoning,
       requirements: allReqs.slice(0, 300),
-      keyDates: allDates,
+      keyDates: mergedDates,
       redFlags: allFlags,
       deliverables: allEvalCriteria.map(e => ({ text: `${e.factor}: ${e.weight}`, page: e.page })),
     });
@@ -311,7 +341,7 @@ Return JSON ONLY:
     dbUser.uploadsThisMonth = (dbUser.uploadsThisMonth ?? 0) + 1;
     await dbUser.save();
 
-    console.log(`[analyze] Done. Reqs: ${allReqs.length}, Dates: ${allDates.length}, Flags: ${allFlags.length}, Criteria: ${allEvalCriteria.length}`);
+    console.log(`[analyze] Done. Reqs: ${allReqs.length}, Dates: ${mergedDates.length} (${coverPageDates.length} from cover page + ${allDates.length} from pipeline), Flags: ${allFlags.length}, Criteria: ${allEvalCriteria.length}`);
     return NextResponse.json({ success: true, analysisId: analysis._id.toString() });
 
   } catch (err: any) {
