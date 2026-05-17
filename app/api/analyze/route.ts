@@ -133,6 +133,13 @@ export async function POST(req: NextRequest) {
 
     const SYSTEM_PROMPT = "You are a senior procurement auditor with 20 years of experience. You process high-stakes government RFPs with 100% precision. You output only valid JSON.";
 
+    const SAFETY_SETTINGS = [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+    ];
+
     // ─── PASS 1: INTELLIGENCE (Summary, Dates, Flags, Criteria) ──────────────
     console.log("[analyze] Pass 1: Extracting Strategic Intelligence...");
     
@@ -156,7 +163,7 @@ Return JSON ONLY:
   ]
 }
 
-CRITICAL: Extract the RFP Schedule (Proposals Due, etc.) from the cover page table. Ensure evaluation criteria are scoring points, not EEO goals.`;
+CRITICAL: Extract the RFP Schedule (Proposals Due, etc.) from the ENTIRE document, not just the cover page. Ensure evaluation criteria are scoring points, not EEO goals.`;
 
     let intelligence: any = {};
     try {
@@ -172,12 +179,38 @@ CRITICAL: Extract the RFP Schedule (Proposals Due, etc.) from the cover page tab
               { inlineData: { mimeType: "application/pdf", data: pdfBase64 } }
             ] 
           }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+          generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 8192 },
+          safetySettings: SAFETY_SETTINGS
         })
       });
       const data = await res.json();
-      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      intelligence = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim());
+      
+      if (data?.candidates?.[0]?.finishReason === "SAFETY") {
+        console.warn("[analyze] Intelligence Pass blocked by safety filters! Using partial response.");
+      }
+      
+      let raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      raw = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+      
+      try {
+        intelligence = JSON.parse(raw);
+      } catch (e) {
+        console.warn("[analyze] Truncated JSON in Intelligence Pass. Attempting recovery...");
+        const lastObjectEnd = raw.lastIndexOf("}");
+        if (lastObjectEnd !== -1) {
+          raw = raw.substring(0, lastObjectEnd + 1);
+          try { intelligence = JSON.parse(raw); } 
+          catch(e1) {
+            try { intelligence = JSON.parse(raw + "}"); }
+            catch(e2) {
+              try { intelligence = JSON.parse(raw + "]}"); }
+              catch(e3) { intelligence = {}; }
+            }
+          }
+        } else {
+          intelligence = {};
+        }
+      }
       console.log("[analyze] Intelligence Pass Complete.");
     } catch (e) {
       console.error("[analyze] Intelligence Pass Failed:", e);
@@ -185,9 +218,22 @@ CRITICAL: Extract the RFP Schedule (Proposals Due, etc.) from the cover page tab
     }
 
     // ─── PASS 2: REQUIREMENTS MATRIX ──────────────────────────────────────────
-    console.log("[analyze] Pass 2: Extracting Requirements Matrix...");
+    console.log("[analyze] Pass 2: Extracting Requirements Matrix (Parallel Chunks via native PDF)...");
     
-    const matrixPrompt = `Analyze this entire RFP document. Extract EVERY mandate, obligation, or technical requirement. 
+    let allRequirements: any[] = [];
+    try {
+      const totalPages = pageCount || 100; // Fallback if pdfParse fails to get pageCount
+      const pagesPerChunk = Math.ceil(totalPages / 2);
+      
+      const chunkRanges = [
+        { start: 1, end: pagesPerChunk },
+        { start: pagesPerChunk + 1, end: totalPages + 10 } // Add buffer at the end just in case
+      ];
+
+      const fetchChunk = async (range: { start: number, end: number }, index: number) => {
+        const matrixPrompt = `Analyze ONLY PAGES ${range.start} through ${range.end} of this RFP document. 
+Ignore all other pages. 
+Extract EVERY mandate, obligation, or technical requirement found IN THIS SPECIFIC PAGE RANGE ONLY.
 Look for "shall", "must", "will", "required", "is responsible for".
 
 Return JSON ONLY:
@@ -198,37 +244,69 @@ Return JSON ONLY:
       "category": "Technical|Management|Legal|Compliance|Pricing|Operational", 
       "mandatory": true, 
       "severity": "Critical|High|Medium|Low", 
-      "page": <page_number> 
+      "page": <page_number_between_${range.start}_and_${range.end}> 
     }
   ]
 }
 
-Try to extract up to 100-150 most important requirements. Focus on items that could lead to disqualification or major cost increases.`;
+Try to extract all important requirements from pages ${range.start}-${range.end}.`;
 
-    let matrix: any = { requirements: [] };
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ 
-            role: "user", 
-            parts: [
-              { text: matrixPrompt },
-              { inlineData: { mimeType: "application/pdf", data: pdfBase64 } }
-            ] 
-          }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
-        })
-      });
-      const data = await res.json();
-      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      matrix = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim());
-      console.log(`[analyze] Matrix Pass Complete: ${matrix.requirements?.length} reqs found.`);
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [{ 
+              role: "user", 
+              parts: [
+                { text: matrixPrompt },
+                { inlineData: { mimeType: "application/pdf", data: pdfBase64 } }
+              ] 
+            }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 8192 },
+            safetySettings: SAFETY_SETTINGS
+          })
+        });
+        
+        const data = await res.json();
+        let raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        raw = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+        
+        try {
+          return JSON.parse(raw).requirements || [];
+        } catch (parseErr) {
+          console.warn("[analyze] Truncated JSON in Chunk " + (index + 1) + ". Attempting recovery...");
+          const lastObjectEnd = raw.lastIndexOf("}");
+          if (lastObjectEnd !== -1) {
+            raw = raw.substring(0, lastObjectEnd + 1) + "]}";
+            return JSON.parse(raw).requirements || [];
+          }
+          return [];
+        }
+      };
+
+      // Run all 3 chunks at the exact same time
+      const chunkResults = await Promise.all(chunkRanges.map((range, index) => fetchChunk(range, index)));
+      
+      for (const reqs of chunkResults) {
+        if (Array.isArray(reqs)) allRequirements = allRequirements.concat(reqs);
+      }
+      
+      // Remove exact duplicates just in case
+      const uniqueReqs = new Map();
+      for (const req of allRequirements) {
+        if (req.text && req.text.length > 5) {
+          uniqueReqs.set(req.text.trim(), req);
+        }
+      }
+      allRequirements = Array.from(uniqueReqs.values());
+
+      console.log("[analyze] Matrix Pass Complete: " + allRequirements.length + " unique reqs found across 2 native PDF chunks.");
     } catch (e) {
       console.warn("[analyze] Matrix Pass Failed, using intelligence results only.", e);
     }
+    
+    let matrix: any = { requirements: allRequirements };
 
     // ─── SAVE & FINISH ────────────────────────────────────────────────────────
     await Analysis.findByIdAndUpdate(analysis._id, {
